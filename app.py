@@ -1,73 +1,75 @@
+from flask import Flask, request, render_template, jsonify
 import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from scanners.hash_scanner import hash_scan
-from scanners.heuristic_scanner import heuristic_scan
-from scanners.entropy_analysis import calculate_entropy
-# from scanners.magic_number import check_file_type
-from scanners.static_analysis_2 import analyze_metadata
-from scanners.Yara import yara_scan
+import mimetypes
 
 app = Flask(__name__)
-CORS(app)
+
+# Define a folder to save uploaded files
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+# Allowed file extensions for safety
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'txt'}
+
+
+def is_file_safe(file_path):
+    """
+    Perform checks to determine if the file is safe.
+    Example: Checking file type and other criteria.
+    """
+    # Get the file extension
+    mimetype, _ = mimetypes.guess_type(file_path)
+    extension = os.path.splitext(file_path)[1].lower().lstrip('.')
+
+    # Check if the extension is allowed
+    if extension not in ALLOWED_EXTENSIONS:
+        return False, f"File type not allowed: {extension}"
+
+    # Placeholder: Add virus scanning or content scanning logic here
+    # Example: Scan with ClamAV, VirusTotal, etc.
+
+    return True, "File is safe"
 
 
 @app.route('/')
-def home():
-    return "File Scanner API is running!"
+def index():
+    """
+    Render the file upload form.
+    """
+    return render_template('index.html')
 
 
-@app.route('/scan', methods=['POST'])
-def scan_file():
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """
+    Handle the file upload and determine if it's safe or not.
+    """
     if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({'error': 'No file part in the request'}), 400
 
-    uploaded_file = request.files['file']
-    if uploaded_file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+    file = request.files['file']
 
-    file_path = os.path.join("uploads", uploaded_file.filename)
-    os.makedirs("uploads", exist_ok=True)
-    uploaded_file.save(file_path)
-    print(f"[DEBUG] File uploaded to: {file_path}")
+    if file.filename == '':
+        return jsonify({'error': 'No file selected for uploading'}), 400
 
-    try:
-        # Check if the file was saved correctly
-        with open(file_path, 'rb') as f:
-            print(f"[DEBUG] Uploaded file content: {f.read()}")
+    if file:
+        # Save the uploaded file
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+        file.save(file_path)
 
-        # Run scans
-        print("[DEBUG] Running hash scan...")
-        hash_result = hash_scan(file_path)
+        # Check if the file is safe or not
+        is_safe, message = is_file_safe(file_path)
 
-        print("[DEBUG] Running heuristic scan...")
-        heuristic_result = heuristic_scan(file_path)
-
-        entropy_result = calculate_entropy(file_path)
-        # magic_number_result = check_file_type(file_path)
-        static_analysis_result = analyze_metadata(file_path)
-        yara_result = yara_scan(file_path)
-
-        results = {
-            "hash_scan": hash_result,
-            "heuristic_scan": heuristic_result,
-            "entropy_scan": entropy_result,
-            # "magic_number_scan": magic_number_result,
-            "static_analysis_scan": static_analysis_result,
-            "yara_scan": yara_result
-        }
-
-        is_safe = all(result == "safe" for result in results.values())
-        status = "safe" if is_safe else "unsafe"
-
-        return jsonify({"message": "File scanned", "status": status, "results": results}), 200
-
-    except Exception as e:
-        return jsonify({"error": f"Scanning failed: {str(e)}"}), 500
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        # Result based on file safety
+        result_message = f"File '{file.filename}' uploaded and processed successfully!"
+        if is_safe:
+            return jsonify({'message': result_message, 'status': 'Safe', 'details': message}), 200
+        else:
+            return jsonify({'message': result_message, 'status': 'Not Safe', 'details': message}), 400
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)

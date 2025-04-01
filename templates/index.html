@@ -3,72 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Scanner</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background-color: #f5f5f5;
-        }
-        form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        input[type="file"] {
-            margin-bottom: 10px;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
-            cursor: pointer;
-        }
-        #result {
-            margin-top: 20px;
-            font-weight: bold;
-        }
-    </style>
+    <title>File Upload</title>
 </head>
 <body>
-    <h1>File Scanner</h1>
-    <form id="uploadForm">
-        <input type="file" id="fileInput">
-        <button type="button" onclick="uploadFile()">Scan File</button>
+    <h1>Upload a File</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit">Upload</button>
     </form>
-    <div id="result"></div>
-
-    <script>
-        async function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
-            const formData = new FormData();
-
-            if (fileInput.files.length === 0) {
-                alert("Please select a file to scan.");
-                return;
-            }
-
-            formData.append("file", fileInput.files[0]);
-
-            try {
-                const response = await fetch('http://localhost:5000/scan', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                const resultDiv = document.getElementById('result');
-                resultDiv.textContent = result.message + '\nStatus: ' + result.status;
-                resultDiv.style.color = result.status === "safe" ? "green" : "red";
-            } catch (error) {
-                console.error("Error uploading file:", error);
-                document.getElementById('result').textContent = "Error: " + error.message;
-            }
-        }
-    </script>
 </body>
 </html>
